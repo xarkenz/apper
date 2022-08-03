@@ -97,7 +97,7 @@ class ApperPoint {
     let p = matrix.transformPoint(new DOMPoint(this.x, this.y));
     return new ApperPoint(p.x, p.y);
   }
-  
+
 }
 
 
@@ -151,7 +151,7 @@ class ApperRect {
     let br = this.#pos.add(this.#size).transform(matrix);
     return new ApperRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
   }
-  
+
 }
 
 
@@ -173,7 +173,7 @@ class ApperToolbar {
 
   constructor(app, shown = true) {
     this.#app = app;
-    
+
     this.#element = document.createElement("div");
     this.#element.className = "apper-toolbar";
     this.#app.element.appendChild(this.#element);
@@ -181,7 +181,7 @@ class ApperToolbar {
 
     this.#toggler = document.createElement("img");
     this.#toggler.className = "apper-toolbar-toggler";
-    this.#toggler.src = "icons/toolbar-toggler.svg";
+    this.#toggler.src = "https://raw.githubusercontent.com/xarkenz/apper/main/src/icons/toolbar-toggler.svg";
     this.#toggler.addEventListener("mousedown", event => toggleStyleClass(app.element, "apper-toolbar-shown"), {capture: false, passive: true});
     this.#toggler.addEventListener("touchstart", event => toggleStyleClass(app.element, "apper-toolbar-shown"), {capture: false, passive: true});
     this.#app.element.appendChild(this.#toggler);
@@ -201,7 +201,7 @@ class ApperToolbar {
     let toolID = this.#tools.length;
     this.#tools.push({name, displayName, iconSrc, key, shortcut, isDefault});
     if (isDefault) this.#defaultTool = toolID;
-    
+
     let button = document.createElement("div");
     button.className = "apper-toolbutton";
     if (this.#tool === toolID) button.classList.add("apper-button-selected");
@@ -211,11 +211,11 @@ class ApperToolbar {
     }, {capture: false, passive: true});
     this.#element.appendChild(button);
     this.#tools[toolID].element = button;
-    
+
     let icon = document.createElement("img");
     icon.src = iconSrc;
     button.appendChild(icon);
-    
+
     let tooltip = document.createElement("div");
     tooltip.className = "apper-toolbutton-tip";
     tooltip.textContent = displayName;
@@ -237,7 +237,7 @@ class ApperToolbar {
 
     return this;
   }
-  
+
 }
 
 
@@ -274,7 +274,7 @@ class ApperButton {
 
   #element;
   #name;
-  
+
   get element() { return this.#element; }
   get name() { return this.#name; }
   get label() { return this.#element.textContent; }
@@ -341,26 +341,26 @@ class ApperCheckbox {
     this.#label = document.createElement("span");
     this.#label.textContent = label;
     this.#element.appendChild(this.#label);
-    
+
     this.#input = document.createElement("input");
     this.#input.type = "checkbox";
     this.#input.name = name;
     this.#input.checked = init;
     this.#element.appendChild(this.#input);
-    
+
     let box = document.createElement("div");
     let check = document.createElement("img");
-    check.src = "icons/checkbox-check.svg";
+    check.src = "https://raw.githubusercontent.com/xarkenz/apper/main/src/icons/checkbox-check.svg";
     box.appendChild(check);
     this.#element.appendChild(box);
   }
 
   onChange(callback) {
     this.change = callback;
-    
+
     return this;
   }
-  
+
 }
 
 
@@ -376,7 +376,7 @@ class ApperHSpread {
   get label() { return this.#label.textContent; }
   set label(text) { return this.#label.textContent = text; }
   get value() { return this.#value; }
-  
+
   set value(value) {
     document.querySelectorAll(`.apper-hspread input[name="${this.#name}"]`).forEach(input => {
       input.checked = input.value == value;
@@ -387,18 +387,18 @@ class ApperHSpread {
   constructor(name, label, icons, init = null) {
     this.#name = name;
     this.#value = init;
-    
+
     this.#element = document.createElement("div");
     this.#element.className = "apper-hspread";
 
     this.#label = document.createElement("span");
     this.#label.textContent = label;
     this.#element.appendChild(this.#label);
-    
+
     icons.forEach((iconSrc, value) => {
       let container = document.createElement("label");
       this.#element.appendChild(container);
-      
+
       let input = document.createElement("input");
       input.type = "radio";
       input.name = name;
@@ -409,10 +409,10 @@ class ApperHSpread {
         if (this.change !== undefined) this.change(value);
       }, {capture: false, passive: true});
       container.appendChild(input);
-      
+
       let button = document.createElement("span");
       container.appendChild(button);
-      
+
       let icon = document.createElement("img");
       icon.src = iconSrc;
       button.appendChild(icon);
@@ -421,10 +421,10 @@ class ApperHSpread {
 
   onChange(callback) {
     this.change = callback;
-    
+
     return this;
   }
-  
+
 }
 
 
@@ -443,7 +443,7 @@ class ApperTextEditor {
 
   constructor(name, placeholder = "", init = "") {
     this.#name = name;
-    
+
     this.#element = document.createElement("textarea");
     this.#element.className = "apper-text-editor";
     this.#element.name = name;
@@ -468,10 +468,10 @@ class ApperTextEditor {
 
   onChange(callback) {
     this.change = callback;
-    
+
     return this;
   }
-  
+
 }
 
 
@@ -510,10 +510,10 @@ class ApperButtonList {
 
   onChange(callback) {
     this.change = callback;
-    
+
     return this;
   }
-  
+
 }
 
 
@@ -547,7 +547,7 @@ class ApperNumberInput {
     this.#label = document.createElement("span");
     this.#label.textContent = label;
     this.#element.appendChild(this.#label);
-    
+
     this.#input = document.createElement("input");
     this.#input.type = "number";
     this.#input.name = name;
@@ -557,10 +557,10 @@ class ApperNumberInput {
 
   onChange(callback) {
     this.change = callback;
-    
+
     return this;
   }
-  
+
 }
 
 
@@ -620,17 +620,17 @@ class ApperMenu {
 
   get title() { return this.#title.textContent; }
   set title(text) { return this.#title.textContent = text; }
-  
+
   constructor(app, title = "") {
     this.#app = app;
 
     this.#frame = document.createElement("div");
     this.#frame.className = "apper-menu";
     this.#app.element.appendChild(this.#frame);
-    
+
     this.#element = document.createElement("div");
     this.#frame.appendChild(this.#element);
-    
+
     this.#title = document.createElement("span");
     this.#title.className = "apper-menu-title";
     this.#title.textContent = title;
@@ -639,19 +639,19 @@ class ApperMenu {
 
   show() {
     this.#frame.classList.add("apper-shown");
-    
+
     return this;
   }
 
   hide() {
     this.#frame.classList.remove("apper-shown");
-    
+
     return this;
   }
 
   add(object) {
     this.#element.appendChild(object.element);
-    
+
     return this;
   }
 
@@ -659,7 +659,7 @@ class ApperMenu {
     let separator = document.createElement("span");
     separator.className = "apper-menu-separator";
     this.#element.appendChild(separator);
-    
+
     return this;
   }
 
@@ -670,7 +670,7 @@ class ApperMenu {
 
     return this;
   }
-  
+
 }
 
 
@@ -704,7 +704,7 @@ class ApperApplication {
   constructor(element) {
     this.#element = element;
     this.#element.classList.add("apper-application");
-    
+
     this.#canvas = document.createElement("canvas");
     this.#canvas.width = 0;
     this.#canvas.height = 0;
@@ -803,10 +803,10 @@ class ApperApplication {
 
   #rawWindowResize() {
     const move = new ApperPoint(0.5 * (this.#element.clientWidth * this.pixelRatio - this.#canvas.width), 0.5 * (this.#element.clientHeight * this.pixelRatio - this.#canvas.height));
-    
+
     this.#canvas.width = this.#element.clientWidth * this.pixelRatio;
     this.#canvas.height = this.#element.clientHeight * this.pixelRatio;
-    
+
     this.#transform.translateSelf(move.x, move.y);
     const center = this.getWorldPos(new ApperPoint(0.5 * this.#canvas.width, 0.5 * this.#canvas.height));
     this.#transform.scaleSelf(this.pixelRatio / this.#transform.a, this.pixelRatio / this.#transform.d, 1, center.x, center.y);
@@ -817,7 +817,7 @@ class ApperApplication {
     };
 
     if (this.windowResize !== undefined) this.windowResize(info);
-    
+
     this.update();
   }
 
@@ -869,7 +869,7 @@ class ApperApplication {
       rightBtn: isTouch ? false : new Boolean(event.buttons & 2),
       middleBtn: isTouch ? false : new Boolean(event.buttons & 4)
     };
-    
+
     this.#cursorPos.set(info.onCanvas ? screenPos : 0);
 
     if (this.mouseMove === undefined || !this.mouseMove(info)) return;
@@ -901,9 +901,9 @@ class ApperApplication {
       dx: event.deltaX,
       dy: event.deltaY
     };
-    
+
     if (this.scrollWheel === undefined || !this.scrollWheel(info)) return;
-    
+
     event.preventDefault();
     event.stopPropagation();
 
@@ -912,17 +912,17 @@ class ApperApplication {
 
   #rawKeyDown(event) {
     if (event.target !== document.body) return;
-    
+
     const info = {
       key: event.code.toLowerCase()
     };
-    
+
     if (this.keyDown === undefined || !this.keyDown(info)) return;
 
     event.preventDefault();
     event.stopPropagation();
-    
+
     this.update();
   }
-  
+
 }
