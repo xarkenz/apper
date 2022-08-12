@@ -1,39 +1,300 @@
-const populateAppers = (type, className, dest) => {
-  for (let element of document.querySelectorAll("." + className)) {
-    let app = new type(element);
-    if (dest !== undefined) dest.push(app);
+class Apper {
+
+  MESSAGE_DURATION = 10;
+
+  #element;
+  #canvas;
+  #ctx;
+  #title;
+  #defaultTitle;
+  #toolbar;
+  #transform;
+  #cursorPos;
+  #menus;
+  #message;
+  #messageTimeout;
+
+  get element() { return this.#element; }
+  get canvas() { return this.#canvas; }
+  get ctx() { return this.#ctx; }
+  get title() { return this.#title.value; }
+  set title(text) { this.#title.value = text; this.#updateTitleWidth(); return this.#title.value; }
+  get defaultTitle() { return this.#defaultTitle; }
+  set defaultTitle(text) { if (!this.title) this.title = text; this.#updateTitleWidth(); return this.#defaultTitle = text; }
+  get toolbar() { return this.#toolbar; }
+  get tool() { return this.#toolbar.tool; }
+  set tool(tool) { return this.#toolbar.tool = tool; }
+  get transform() { return this.#transform; }
+  set transform(matrix) { return this.#transform = matrix; }
+  get cursorPos() { return this.#cursorPos.copy(); }
+  get scale() { return window.devicePixelRatio; }
+
+  constructor() {
+    this.#element = document.createElement("div");
+    this.#element.className = "apper";
+
+    this.#canvas = document.createElement("canvas");
+    this.#canvas.width = 0;
+    this.#canvas.height = 0;
+    this.#element.appendChild(this.#canvas);
+
+    this.#title = document.createElement("input");
+    this.#title.className = "apper-title";
+    this.#title.type = "text";
+    this.#defaultTitle = "";
+    this.#title.value = "";
+    this.#title.spellcheck = false;
+    this.#title.autocomplete = "off";
+    this.#title.addEventListener("input", event => {
+      this.#updateTitleWidth();
+    }, {passive: true});
+    this.#title.addEventListener("blur", event => {
+      if (!this.title) this.title = this.defaultTitle;
+      this.#updateTitleWidth();
+    }, {passive: true});
+    this.#title.addEventListener("keypress", event => {
+      if (event.code.toLowerCase() === "enter") this.#title.blur();
+    }, {passive: true});
+    this.#element.appendChild(this.#title);
+    this.#updateTitleWidth();
+
+    this.#message = null;
+    this.#messageTimeout = null;
+    this.#toolbar = null;
+    this.#menus = [];
+
+    this.#ctx = this.#canvas.getContext("2d");
+
+    window.addEventListener("resize", this.#rawWindowResize.bind(this), {passive: true});
+    this.#canvas.addEventListener("mousedown", this.#rawMouseDown.bind(this), {passive: false});
+    document.addEventListener("mousemove", this.#rawMouseMove.bind(this), {passive: true});
+    document.addEventListener("mouseup", this.#rawMouseUp.bind(this), {capture: true, passive: true});
+    this.#canvas.addEventListener("touchstart", this.#rawMouseDown.bind(this), {passive: false});
+    document.addEventListener("touchmove", this.#rawMouseMove.bind(this), {passive: true});
+    document.addEventListener("touchend", this.#rawMouseUp.bind(this), {passive: true});
+    this.#canvas.addEventListener("wheel", this.#rawScrollWheel.bind(this), {capture: true, passive: false});
+    document.addEventListener("keydown", this.#rawKeyDown.bind(this), {capture: true, passive: false});
+
+    this.#transform = this.#ctx.getTransform();
+    this.#cursorPos = new Apper.Vector2();
   }
+
+  start() {
+    this.#rawWindowResize();
+  }
+
+  #updateTitleWidth() {
+    this.#title.style.width = `${Apper.textMetrics(this.title, this.#title).width + 12}px`;
+  }
+
+  enableToolbar() {
+    if (this.#toolbar == null) this.#toolbar = new Apper.Toolbar(this);
+    return this.#toolbar;
+  }
+
+  addMenu(title) {
+    let menu = new Apper.Menu(this, title);
+    return this.#menus[menu.ID] = menu;
+  }
+
+  showMessage(text, error = false) {
+    this.#message = document.createElement("div");
+    this.#message.className = "apper-message";
+    if (error) this.#message.classList.add("apper-error");
+    this.#message.textContent = text;
+    this.#element.appendChild(this.#message);
+    window.setTimeout(() => this.#message.classList.add("apper-shown"));
+    this.#messageTimeout = window.setTimeout(() => this.hideMessage(), this.MESSAGE_DURATION * 1000);
+  }
+
+  showError(text) {
+    this.showMessage(text, true);
+  }
+
+  hideMessage() {
+    if (this.#messageTimeout == null || this.#message == null) return;
+    window.clearTimeout(this.#messageTimeout);
+    this.#messageTimeout = null;
+    this.#message.classList.remove("apper-shown");
+    const failsafeTimeout = window.setTimeout(() => this.#message.remove(), this.MESSAGE_DURATION * 1000);
+    this.#message.addEventListener("animationend", () => {
+      window.clearTimeout(failsafeTimeout);
+      this.#message.remove();
+    }, {passive: true});
+  }
+
+  getScreenPos(worldPos) {
+    return worldPos.transform(this.#transform);
+  }
+
+  getWorldPos(screenPos) {
+    return screenPos.transform(this.#transform.inverse());
+  }
+
+  update() {
+    this.#ctx.resetTransform();
+    this.#ctx.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
+    this.#ctx.setTransform(this.#transform);
+
+    if (this.render !== undefined) this.render();
+  }
+
+  #rawWindowResize() {
+    const move = new Apper.Vector2(0.5 * (this.#element.clientWidth * this.scale - this.#canvas.width), 0.5 * (this.#element.clientHeight * this.scale - this.#canvas.height));
+
+    this.#canvas.width = this.#element.clientWidth * this.scale;
+    this.#canvas.height = this.#element.clientHeight * this.scale;
+
+    this.#transform.translateSelf(move.x, move.y);
+    const center = this.getWorldPos(new Apper.Vector2(0.5 * this.#canvas.width, 0.5 * this.#canvas.height));
+    this.#transform.scaleSelf(this.scale / this.#transform.a, this.scale / this.#transform.d, 1, center.x, center.y);
+
+    const info = {
+      width: this.#element.clientWidth,
+      height: this.#element.clientHeight
+    };
+
+    if (this.windowResize !== undefined) this.windowResize(info);
+
+    this.update();
+  }
+
+  #rawMouseDown(event) {
+    const isTouch = event.touches !== undefined;
+    const screenPos = new Apper.Vector2(
+      (isTouch ? event.touches[0].pageX - this.element.offsetLeft : event.pageX - this.element.offsetLeft) * this.scale,
+      (isTouch ? event.touches[0].pageY - this.element.offsetTop : event.pageY - this.element.offsetTop) * this.scale);
+
+    const info = {
+      isTouch,
+      screenPos,
+      worldPos: this.getWorldPos(screenPos),
+      altKey: event.altKey,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      leftBtn: isTouch ? true : !!(event.buttons & 1),
+      rightBtn: isTouch ? false : !!(event.buttons & 2),
+      middleBtn: isTouch ? false : !!(event.buttons & 4),
+      button: isTouch ? 0 : event.button
+    };
+
+    this.#title.blur();
+    this.#cursorPos.set(screenPos);
+
+    if (this.mouseDown === undefined || !this.mouseDown(info)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.update();
+  }
+
+  #rawMouseMove(event) {
+    const isTouch = event.touches !== undefined;
+    const screenPos = new Apper.Vector2(
+      (isTouch ? event.touches[0].pageX - this.element.offsetLeft : event.pageX - this.element.offsetLeft) * this.scale,
+      (isTouch ? event.touches[0].pageY - this.element.offsetTop : event.pageY - this.element.offsetTop) * this.scale);
+
+    const info = {
+      isTouch,
+      onCanvas: event.target === this.#canvas,
+      screenPos,
+      worldPos: this.getWorldPos(screenPos),
+      altKey: event.altKey,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      leftBtn: isTouch ? true : !!(event.buttons & 1),
+      rightBtn: isTouch ? false : !!(event.buttons & 2),
+      middleBtn: isTouch ? false : !!(event.buttons & 4)
+    };
+
+    this.#cursorPos.set(info.onCanvas ? screenPos : 0);
+
+    if (this.mouseMove === undefined || !this.mouseMove(info)) return;
+
+    this.update();
+  }
+
+  #rawMouseUp(event) {
+    const isTouch = event.touches !== undefined;
+
+    const info = {
+      isTouch,
+      altKey: event.altKey,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      leftBtn: isTouch ? true : !!(event.buttons & 1),
+      rightBtn: isTouch ? false : !!(event.buttons & 2),
+      middleBtn: isTouch ? false : !!(event.buttons & 4),
+      button: isTouch ? 0 : event.button
+    };
+
+    if (this.mouseUp === undefined || !this.mouseUp(info)) return;
+
+    this.update();
+  }
+
+  #rawScrollWheel(event) {
+    const info = {
+      dx: event.deltaX,
+      dy: event.deltaY
+    };
+
+    if (this.scrollWheel === undefined || !this.scrollWheel(info)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.update();
+  }
+
+  #rawKeyDown(event) {
+    if (event.target !== document.body) return;
+
+    const info = {
+      key: event.code.toLowerCase()
+    };
+
+    if (this.keyDown === undefined || !this.keyDown(info)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.update();
+  }
+
 }
 
-const toggleStyleClass = (element, className) => {
+
+Apper.toggleStyleClass = (element, className) => {
   if (element.classList.contains(className))
     element.classList.remove(className);
   else
     element.classList.add(className);
-}
+};
 
-const measureText = (text, src) => {
-  const canvas = measureText.canvas ?? (measureText.canvas = document.createElement("canvas"));
+Apper.textMetrics = (text, source) => {
+  const canvas = Apper.textMetrics.canvas ?? (Apper.textMetrics.canvas = document.createElement("canvas"));
   const ctx = canvas.getContext("2d");
-  if (src instanceof Element) {
-    const style = window.getComputedStyle(src, null);
-    ctx.font = `${
-      style.getPropertyValue("font-weight") || "normal"} ${
-      style.getPropertyValue("font-size") || "14px"} ${
-      style.getPropertyValue("font-family") || "Nunito"}`;
-  } else ctx.font = src;
-  return ctx.measureText(text).width;
-}
+  if (source instanceof Element) {
+    const style = window.getComputedStyle(source, null);
+    ctx.font = `\
+      ${style.getPropertyValue("font-weight") || "normal"} \
+      ${style.getPropertyValue("font-size") || "14px"} \
+      ${style.getPropertyValue("font-family") || "Nunito"}`;
+  } else ctx.font = source;
+  return ctx.measureText(text);
+};
 
 
-class ApperPoint {
+Apper.Vector2 = class {
 
   constructor(x = 0, y = null) {
     this.set(x, y);
   }
 
   copy() {
-    return new ApperPoint(this.x, this.y);
+    return new Apper.Vector2(this);
   }
 
   set(x, y = null) {
@@ -42,7 +303,7 @@ class ApperPoint {
       this.y = x.y;
       return this;
     }
-    if (y === null) y = x;
+    if (y == null) y = x;
     this.x = x;
     this.y = y;
     return this;
@@ -55,36 +316,36 @@ class ApperPoint {
   equals(x, y = null) {
     if (x.x !== undefined)
       return this.x === x.x && this.y === x.y;
-    if (y === null) y = x;
+    if (y == null) y = x;
     return this.x === x && this.y === y;
   }
 
   add(x, y = null) {
     if (x.x !== undefined)
-      return new ApperPoint(this.x + x.x, this.y + x.y);
-    if (y === null) y = x;
-    return new ApperPoint(this.x + x, this.y + y);
+      return new Apper.Vector2(this.x + x.x, this.y + x.y);
+    if (y == null) y = x;
+    return new Apper.Vector2(this.x + x, this.y + y);
   }
 
   sub(x, y = null) {
     if (x.x !== undefined)
-      return new ApperPoint(this.x - x.x, this.y - x.y);
-    if (y === null) y = x;
-    return new ApperPoint(this.x - x, this.y - y);
+      return new Apper.Vector2(this.x - x.x, this.y - x.y);
+    if (y == null) y = x;
+    return new Apper.Vector2(this.x - x, this.y - y);
   }
 
   mul(x, y = null) {
     if (x.x !== undefined)
-      return new ApperPoint(this.x * x.x, this.y * x.y);
-    if (y === null) y = x;
-    return new ApperPoint(this.x * x, this.y * y);
+      return new Apper.Vector2(this.x * x.x, this.y * x.y);
+    if (y == null) y = x;
+    return new Apper.Vector2(this.x * x, this.y * y);
   }
 
   div(x, y = null) {
     if (x.x !== undefined)
-      return new ApperPoint(this.x / x.x, this.y / x.y);
-    if (y === null) y = x;
-    return new ApperPoint(this.x / x, this.y / y);
+      return new Apper.Vector2(this.x / x.x, this.y / x.y);
+    if (y == null) y = x;
+    return new Apper.Vector2(this.x / x, this.y / y);
   }
 
   dot(x, y = null) {
@@ -94,14 +355,13 @@ class ApperPoint {
   }
 
   transform(matrix) {
-    let p = matrix.transformPoint(new DOMPoint(this.x, this.y));
-    return new ApperPoint(p.x, p.y);
+    return new Apper.Vector2(matrix.transformPoint(new DOMPoint(this.x, this.y)));
   }
 
-}
+};
 
 
-class ApperRect {
+Apper.Rect = class {
 
   #pos;
   #size;
@@ -115,61 +375,98 @@ class ApperRect {
   get h() { return this.#size.y; }
   set h(h) { return this.#size.y = h; }
 
-  get X() { return this.#pos.x + this.#size.x; }
-  get Y() { return this.#pos.y + this.#size.y; }
+  get xw() { return this.#pos.x + this.#size.x; }
+  get yh() { return this.#pos.y + this.#size.y; }
 
-  get xy() { return new ApperPoint(this.x, this.y); }
-  get Xy() { return new ApperPoint(this.x + this.w, this.y); }
-  get xY() { return new ApperPoint(this.x, this.y + this.h); }
-  get XY() { return new ApperPoint(this.x + this.w, this.y + this.h); }
+  get xy() { return new Apper.Vector2(this.x, this.y); }
+  get xwy() { return new Apper.Vector2(this.x + this.w, this.y); }
+  get xyh() { return new Apper.Vector2(this.x, this.y + this.h); }
+  get xwyh() { return new Apper.Vector2(this.x + this.w, this.y + this.h); }
 
-  get normalized() {
-    return new ApperRect(this.w < 0 ? this.x + this.w : this.x, this.h < 0 ? this.y + this.h : this.y, Math.abs(this.w), Math.abs(this.h))
-  }
+  get area() { return this.w * this.h; }
 
   constructor(x, y, w, h) {
-    this.#pos = new ApperPoint(x, y);
-    this.#size = new ApperPoint(w, h);
+    this.#pos = new Apper.Vector2(x, y);
+    this.#size = new Apper.Vector2(w, h);
   }
 
   copy() {
-    return new ApperRect(this.#pos.x, this.#pos.y, this.#size.x, this.#size.y);
+    return new Apper.Rect(this.#pos.x, this.#pos.y, this.#size.x, this.#size.y);
+  }
+
+  normalized() {
+    return Apper.Rect.normalize(this);
   }
 
   contains(point) {
-    let r = this.normalized;
+    let r = this.normalized();
     return r.x <= point.x && point.x <= r.x + r.w && r.y <= point.y && point.y <= r.y + r.h;
   }
 
   intersects(rect) {
-    let r = this.normalized;
+    let r = this.normalized();
     return !(r.x + r.w <= rect.x || r.x >= rect.x + rect.w || r.y + r.h <= rect.y || r.y >= rect.y + rect.h)
   }
 
   transform(matrix) {
-    let tl = this.#pos.transform(matrix);
-    let br = this.#pos.add(this.#size).transform(matrix);
-    return new ApperRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+    const tl = this.#pos.transform(matrix), br = this.#pos.add(this.#size).transform(matrix);
+    return new Apper.Rect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+  }
+
+};
+
+Apper.Rect.normalize = (rect) => new Apper.Rect(rect.w < 0 ? rect.x + rect.w : rect.x, rect.h < 0 ? rect.y + rect.h : rect.y, Math.abs(rect.w), Math.abs(rect.h));
+
+
+Apper.Tool = class {
+
+  #ID;
+  #name;
+  #displayName;
+  #icon;
+  #key;
+  #shortcut;
+
+  get ID() { return this.#ID; }
+  get name() { return this.#name; }
+  get displayName() { return this.#displayName; }
+  get icon() { return this.#icon; }
+  get key() { return this.#key; }
+  get shortcut() { return this.#shortcut; }
+
+  constructor(name, displayName, icon, key = "", shortcut = "") {
+    this.#ID = Apper.Tool.list.length;
+    this.#name = name;
+    this.#displayName = displayName;
+    this.#icon = icon;
+    this.#key = key;
+    this.#shortcut = shortcut;
+
+    Apper.Tool.list.push(this);
   }
 
 }
 
+Apper.Tool.list = [null];
 
-class ApperToolbar {
+
+Apper.Toolbar = class {
 
   #app;
   #element;
   #toggler;
+  #buttons;
   #tools;
   #tool;
   #defaultTool;
 
   get app() { return this.#app; }
+  get element() { return this.#element; }
   get tools() { return this.#tools; }
-  get tool() { return this.#tool; }
-  set tool(toolID) { this.#tool = toolID; this.#update(); return toolID; }
-  get defaultTool() { return this.#defaultTool; }
-  set defaultTool(toolID) { return this.#defaultTool = toolID; }
+  get tool() { return Apper.Tool.list[this.#tool]; }
+  set tool(tool) { this.#tool = tool.ID; this.#update(); return tool; }
+  get defaultTool() { return Apper.Tool.list[this.#defaultTool]; }
+  set defaultTool(tool) { this.#defaultTool = tool.ID; return tool; }
 
   constructor(app, shown = true) {
     this.#app = app;
@@ -177,54 +474,54 @@ class ApperToolbar {
     this.#element = document.createElement("div");
     this.#element.className = "apper-toolbar";
     this.#app.element.appendChild(this.#element);
-    if (shown) this.#app.element.classList.add("apper-toolbar-shown");
+    if (shown) this.#element.classList.add("apper-shown");
 
     this.#toggler = document.createElement("img");
     this.#toggler.className = "apper-toolbar-toggler";
     this.#toggler.src = "https://raw.githubusercontent.com/xarkenz/apper/main/src/icons/toolbar-toggler.svg";
-    this.#toggler.addEventListener("mousedown", event => toggleStyleClass(app.element, "apper-toolbar-shown"), {capture: false, passive: true});
-    this.#toggler.addEventListener("touchstart", event => toggleStyleClass(app.element, "apper-toolbar-shown"), {capture: false, passive: true});
+    this.#toggler.addEventListener("mousedown", event => Apper.toggleStyleClass(this.#element, "apper-shown"));
+    this.#toggler.addEventListener("touchstart", event => Apper.toggleStyleClass(this.#element, "apper-shown"));
     this.#app.element.appendChild(this.#toggler);
 
+    this.#buttons = [];
     this.#tools = [];
-    this.#defaultTool = 0;
     this.#tool = 0;
+    this.#defaultTool = 0;
   }
 
   #update() {
-    this.#tools.forEach(tool => tool.element.classList.remove("apper-button-selected"));
-    this.#tools[this.#tool].element.classList.add("apper-button-selected");
+    this.#buttons.forEach(button => button.classList.remove("apper-button-selected"));
+    this.#buttons[this.#tool].classList.add("apper-button-selected");
     this.#app.update();
   }
 
-  addTool(name, displayName, iconSrc, key = "", shortcut = "", isDefault = false) {
-    let toolID = this.#tools.length;
-    this.#tools.push({name, displayName, iconSrc, key, shortcut, isDefault});
-    if (isDefault) this.#defaultTool = toolID;
+  addTool(tool, isDefault = false) {
+    this.#tools.push(tool.ID);
+    if (isDefault) this.#tool = this.#defaultTool = tool.ID;
 
     let button = document.createElement("div");
     button.className = "apper-toolbutton";
-    if (this.#tool === toolID) button.classList.add("apper-button-selected");
+    if (this.#tool === tool.ID) button.classList.add("apper-button-selected");
     button.addEventListener("mousedown", event => {
-      this.#tool = this.#tool === toolID ? this.#defaultTool : toolID;
+      this.#tool = this.#tool === tool.ID ? this.#defaultTool : tool.ID;
       this.#update();
-    }, {capture: false, passive: true});
+    }, {passive: true});
     this.#element.appendChild(button);
-    this.#tools[toolID].element = button;
+    this.#buttons[tool.ID] = button;
 
     let icon = document.createElement("img");
-    icon.src = iconSrc;
+    icon.src = tool.icon;
     button.appendChild(icon);
 
-    let tooltip = document.createElement("div");
-    tooltip.className = "apper-toolbutton-tip";
-    tooltip.textContent = displayName;
-    button.appendChild(tooltip);
+    let tip = document.createElement("div");
+    tip.className = "apper-toolbutton-tip";
+    tip.textContent = tool.displayName;
+    button.appendChild(tip);
 
-    if (shortcut) {
+    if (tool.shortcut) {
       let hint = document.createElement("span");
-      hint.textContent = shortcut;
-      tooltip.appendChild(hint);
+      hint.textContent = tool.shortcut;
+      tip.appendChild(hint);
     }
 
     return this;
@@ -238,10 +535,79 @@ class ApperToolbar {
     return this;
   }
 
-}
+};
 
 
-class ApperParagraph {
+Apper.Menu = class {
+
+  #ID;
+  #app;
+  #frame;
+  #element;
+  #title;
+
+  get ID() { return this.#ID; }
+  get app() { return this.#app; }
+  get title() { return this.#title.textContent; }
+  set title(text) { return this.#title.textContent = text; }
+
+  constructor(app, title = "") {
+    this.#ID = Apper.Menu.nextID++;
+    this.#app = app;
+
+    this.#frame = document.createElement("div");
+    this.#frame.className = "apper-menu";
+    this.#app.element.appendChild(this.#frame);
+
+    this.#element = document.createElement("div");
+    this.#frame.appendChild(this.#element);
+
+    this.#title = document.createElement("span");
+    this.#title.className = "apper-menu-title";
+    this.#title.textContent = title;
+    this.#element.appendChild(this.#title);
+  }
+
+  show() {
+    this.#frame.classList.add("apper-shown");
+
+    return this;
+  }
+
+  hide() {
+    this.#frame.classList.remove("apper-shown");
+
+    return this;
+  }
+
+  add(object) {
+    this.#element.appendChild(object.element);
+
+    return this;
+  }
+
+  addSeparator() {
+    let separator = document.createElement("span");
+    separator.className = "apper-menu-separator";
+    this.#element.appendChild(separator);
+
+    return this;
+  }
+
+  addText(text) {
+    let container = document.createElement("span");
+    container.textContent = text;
+    this.#element.appendChild(container);
+
+    return this;
+  }
+
+};
+
+Apper.Menu.nextID = 1;
+
+
+Apper.Menu.Paragraph = class {
 
   #element;
 
@@ -267,10 +633,10 @@ class ApperParagraph {
     return this;
   }
 
-}
+};
 
 
-class ApperButton {
+Apper.Menu.Button = class {
 
   #element;
   #name;
@@ -293,7 +659,7 @@ class ApperButton {
     this.#element.textContent = label;
     this.#element.addEventListener("click", event => {
       if (this.click !== undefined) this.click();
-    }, {capture: false, passive: true});
+    }, {passive: true});
   }
 
   onClick(callback) {
@@ -317,7 +683,7 @@ class ApperButton {
 }
 
 
-class ApperCheckbox {
+Apper.Menu.Checkbox = class {
 
   #element;
   #name;
@@ -336,7 +702,7 @@ class ApperCheckbox {
     this.#element.className = "apper-checkbox";
     this.#element.addEventListener("change", event => {
       if (this.change !== undefined) this.change(this.checked);
-    }, {capture: false, passive: true});
+    }, {passive: true});
 
     this.#label = document.createElement("span");
     this.#label.textContent = label;
@@ -361,10 +727,10 @@ class ApperCheckbox {
     return this;
   }
 
-}
+};
 
 
-class ApperHSpread {
+Apper.Menu.HSpread = class {
 
   #element;
   #name;
@@ -425,10 +791,10 @@ class ApperHSpread {
     return this;
   }
 
-}
+};
 
 
-class ApperTextEditor {
+Apper.Menu.TextEditor = class {
 
   #element;
   #name;
@@ -472,10 +838,10 @@ class ApperTextEditor {
     return this;
   }
 
-}
+};
 
 
-class ApperButtonList {
+Apper.Menu.ButtonList = class {
 
   #element;
   #label;
@@ -514,10 +880,10 @@ class ApperButtonList {
     return this;
   }
 
-}
+};
 
 
-class ApperNumberInput {
+Apper.Menu.NumberInput = class {
 
   #element;
   #name;
@@ -561,10 +927,10 @@ class ApperNumberInput {
     return this;
   }
 
-}
+};
 
 
-class ApperCanvasImage {
+Apper.Menu.CanvasImage = class {
 
   #element;
   #label;
@@ -608,321 +974,4 @@ class ApperCanvasImage {
     return this;
   }
 
-}
-
-
-class ApperMenu {
-
-  #app;
-  #frame;
-  #element;
-  #title;
-
-  get title() { return this.#title.textContent; }
-  set title(text) { return this.#title.textContent = text; }
-
-  constructor(app, title = "") {
-    this.#app = app;
-
-    this.#frame = document.createElement("div");
-    this.#frame.className = "apper-menu";
-    this.#app.element.appendChild(this.#frame);
-
-    this.#element = document.createElement("div");
-    this.#frame.appendChild(this.#element);
-
-    this.#title = document.createElement("span");
-    this.#title.className = "apper-menu-title";
-    this.#title.textContent = title;
-    this.#element.appendChild(this.#title);
-  }
-
-  show() {
-    this.#frame.classList.add("apper-shown");
-
-    return this;
-  }
-
-  hide() {
-    this.#frame.classList.remove("apper-shown");
-
-    return this;
-  }
-
-  add(object) {
-    this.#element.appendChild(object.element);
-
-    return this;
-  }
-
-  addSeparator() {
-    let separator = document.createElement("span");
-    separator.className = "apper-menu-separator";
-    this.#element.appendChild(separator);
-
-    return this;
-  }
-
-  addText(text) {
-    let container = document.createElement("span");
-    container.textContent = text;
-    this.#element.appendChild(container);
-
-    return this;
-  }
-
-}
-
-
-class ApperApplication {
-
-  #element;
-  #canvas;
-  #title;
-  #defaultTitle;
-  #toolbar;
-  #ctx;
-  #transform;
-  #cursorPos;
-  #menus;
-  #message;
-  #messageTimer;
-
-  get element() { return this.#element; }
-  get canvas() { return this.#canvas; }
-  get title() { return this.#title.value; }
-  set title(text) { this.#title.value = text; this.#updateTitleWidth(); return this.#title.value; }
-  get defaultTitle() { return this.#defaultTitle; }
-  set defaultTitle(text) { if (!this.title) this.title = text; this.#updateTitleWidth(); return this.#defaultTitle = text; }
-  get toolbar() { return this.#toolbar; }
-  get ctx() { return this.#ctx; }
-  get transform() { return this.#transform; }
-  set transform(matrix) { return this.#transform = matrix; }
-  get cursorPos() { return this.#cursorPos.copy(); }
-  get pixelRatio() { return window.devicePixelRatio; }
-
-  constructor(element) {
-    this.#element = element;
-    this.#element.classList.add("apper-application");
-
-    this.#canvas = document.createElement("canvas");
-    this.#canvas.width = 0;
-    this.#canvas.height = 0;
-    this.#element.appendChild(this.#canvas);
-
-    this.#title = document.createElement("input");
-    this.#title.className = "apper-title";
-    this.#title.type = "text";
-    this.#defaultTitle = "";
-    this.#title.value = "";
-    this.#title.spellcheck = false;
-    this.#title.autocomplete = "off";
-    this.#title.addEventListener("input", event => {
-      this.#updateTitleWidth();
-    }, {capture: false, passive: true});
-    this.#title.addEventListener("blur", event => {
-      if (!this.title) this.title = this.defaultTitle;
-      this.#updateTitleWidth();
-    }, {capture: false, passive: true});
-    this.#title.addEventListener("keypress", event => {
-      if (event.code.toLowerCase() === "enter") this.#title.blur();
-    }, {capture: false, passive: true});
-    this.#element.appendChild(this.#title);
-    this.#updateTitleWidth();
-
-    this.#message = document.createElement("div");
-    this.#message.className = "apper-message";
-    this.#element.appendChild(this.#message);
-
-    this.#messageTimer = null;
-    this.#toolbar = null;
-    this.#menus = [];
-
-    this.#ctx = this.#canvas.getContext("2d");
-
-    window.addEventListener("resize", this.#rawWindowResize.bind(this), {capture: false, passive: true});
-    this.#canvas.addEventListener("mousedown", this.#rawMouseDown.bind(this), {capture: false, passive: false});
-    document.addEventListener("mousemove", this.#rawMouseMove.bind(this), {capture: false, passive: true});
-    document.addEventListener("mouseup", this.#rawMouseUp.bind(this), {capture: false, passive: true});
-    this.#canvas.addEventListener("touchstart", this.#rawMouseDown.bind(this), {capture: false, passive: false});
-    document.addEventListener("touchmove", this.#rawMouseMove.bind(this), {capture: false, passive: true});
-    document.addEventListener("touchend", this.#rawMouseUp.bind(this), {capture: false, passive: true});
-    this.#canvas.addEventListener("wheel", this.#rawScrollWheel.bind(this), {capture: true, passive: false});
-    document.addEventListener("keydown", this.#rawKeyDown.bind(this), {capture: true, passive: false});
-
-    this.#transform = this.ctx.getTransform();
-    this.#cursorPos = new ApperPoint();
-
-    this.#rawWindowResize();
-  }
-
-  #updateTitleWidth() {
-    this.#title.style.width = `${measureText(this.title, this.#title) + 12}px`;  // For some reason, setting this.#title.style.width doesn't work
-  }
-
-  enableToolbar() {
-    this.#toolbar = new ApperToolbar(this);
-    return this.#toolbar;
-  }
-
-  addMenu(menuID, title) {
-    return this.#menus[menuID] = new ApperMenu(this, title);
-  }
-
-  menu(menuID) {
-    return this.#menus[menuID];
-  }
-
-  showMessage(text, error = false) {
-    this.#message.textContent = text;
-    if (error) this.#message.classList.add("apper-error");
-    else this.#message.classList.remove("apper-error");
-    this.#message.classList.add("apper-shown");
-    if (this.#messageTimer !== null) window.clearTimeout(this.#messageTimer);
-    this.#messageTimer = window.setTimeout(() => {
-      this.#message.classList.remove("apper-shown");
-      this.#messageTimer = null;
-    }, 10000);
-  }
-
-  getScreenPos(worldPos) {
-    return worldPos.transform(this.#transform);
-  }
-
-  getWorldPos(screenPos) {
-    return screenPos.transform(this.#transform.inverse());
-  }
-
-  update() {
-    this.#ctx.resetTransform();
-    this.#ctx.clearRect(0, 0, this.#canvas.width, this.#canvas.height);
-    this.#ctx.setTransform(this.#transform);
-
-    if (this.render !== undefined) this.render();
-  }
-
-  #rawWindowResize() {
-    const move = new ApperPoint(0.5 * (this.#element.clientWidth * this.pixelRatio - this.#canvas.width), 0.5 * (this.#element.clientHeight * this.pixelRatio - this.#canvas.height));
-
-    this.#canvas.width = this.#element.clientWidth * this.pixelRatio;
-    this.#canvas.height = this.#element.clientHeight * this.pixelRatio;
-
-    this.#transform.translateSelf(move.x, move.y);
-    const center = this.getWorldPos(new ApperPoint(0.5 * this.#canvas.width, 0.5 * this.#canvas.height));
-    this.#transform.scaleSelf(this.pixelRatio / this.#transform.a, this.pixelRatio / this.#transform.d, 1, center.x, center.y);
-
-    const info = {
-      width: this.#element.clientWidth,
-      height: this.#element.clientHeight
-    };
-
-    if (this.windowResize !== undefined) this.windowResize(info);
-
-    this.update();
-  }
-
-  #rawMouseDown(event) {
-    const isTouch = event.touches !== undefined;
-    const screenPos = new ApperPoint(
-      (isTouch ? event.touches[0].pageX - this.element.offsetLeft : event.pageX - this.element.offsetLeft) * this.pixelRatio,
-      (isTouch ? event.touches[0].pageY - this.element.offsetTop : event.pageY - this.element.offsetTop) * this.pixelRatio);
-
-    const info = {
-      isTouch,
-      screenPos,
-      worldPos: this.getWorldPos(screenPos),
-      altKey: event.altKey,
-      ctrlKey: event.ctrlKey,
-      shiftKey: event.shiftKey,
-      leftBtn: isTouch ? true : new Boolean(event.buttons & 1),
-      rightBtn: isTouch ? false : new Boolean(event.buttons & 2),
-      middleBtn: isTouch ? false : new Boolean(event.buttons & 4),
-      button: isTouch ? 0 : event.button
-    };
-
-    this.#title.blur();
-    this.#cursorPos.set(screenPos);
-
-    if (this.mouseDown === undefined || !this.mouseDown(info)) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    this.update();
-  }
-
-  #rawMouseMove(event) {
-    const isTouch = event.touches !== undefined;
-    const screenPos = new ApperPoint(
-      (isTouch ? event.touches[0].pageX - this.element.offsetLeft : event.pageX - this.element.offsetLeft) * this.pixelRatio,
-      (isTouch ? event.touches[0].pageY - this.element.offsetTop : event.pageY - this.element.offsetTop) * this.pixelRatio);
-
-    const info = {
-      isTouch,
-      onCanvas: event.target === this.#canvas,
-      screenPos,
-      worldPos: this.getWorldPos(screenPos),
-      altKey: event.altKey,
-      ctrlKey: event.ctrlKey,
-      shiftKey: event.shiftKey,
-      leftBtn: isTouch ? true : new Boolean(event.buttons & 1),
-      rightBtn: isTouch ? false : new Boolean(event.buttons & 2),
-      middleBtn: isTouch ? false : new Boolean(event.buttons & 4)
-    };
-
-    this.#cursorPos.set(info.onCanvas ? screenPos : 0);
-
-    if (this.mouseMove === undefined || !this.mouseMove(info)) return;
-
-    this.update();
-  }
-
-  #rawMouseUp(event) {
-    const isTouch = event.touches !== undefined;
-
-    const info = {
-      isTouch,
-      altKey: event.altKey,
-      ctrlKey: event.ctrlKey,
-      shiftKey: event.shiftKey,
-      leftBtn: isTouch ? true : new Boolean(event.buttons & 1),
-      rightBtn: isTouch ? false : new Boolean(event.buttons & 2),
-      middleBtn: isTouch ? false : new Boolean(event.buttons & 4),
-      button: isTouch ? 0 : event.button
-    };
-
-    if (this.mouseUp === undefined || !this.mouseUp(info)) return;
-
-    this.update();
-  }
-
-  #rawScrollWheel(event) {
-    const info = {
-      dx: event.deltaX,
-      dy: event.deltaY
-    };
-
-    if (this.scrollWheel === undefined || !this.scrollWheel(info)) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    this.update();
-  }
-
-  #rawKeyDown(event) {
-    if (event.target !== document.body) return;
-
-    const info = {
-      key: event.code.toLowerCase()
-    };
-
-    if (this.keyDown === undefined || !this.keyDown(info)) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    this.update();
-  }
-
-}
+};
