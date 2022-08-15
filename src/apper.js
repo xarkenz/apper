@@ -1,3 +1,5 @@
+
+
 class Apper {
 
   MESSAGE_DURATION = 10;
@@ -93,8 +95,13 @@ class Apper {
   }
 
   addMenu(title) {
-    let menu = new Apper.Menu(this, title);
+    const menu = new Apper.Menu(this, title);
     return this.#menus[menu.ID] = menu;
+  }
+
+  addModal(title) {
+    const modal = new Apper.Modal(this, title);
+    return this.#menus[modal.ID] = modal;
   }
 
   showMessage(text, error = false) {
@@ -264,6 +271,10 @@ class Apper {
   }
 
 }
+
+
+Apper.SCRIPT_NODE = document.currentScript;
+Apper.RESOURCE = "https://raw.githubusercontent.com/xarkenz/apper/main/src/";
 
 
 Apper.toggleStyleClass = (element, className) => {
@@ -478,7 +489,7 @@ Apper.Toolbar = class {
 
     this.#toggler = document.createElement("img");
     this.#toggler.className = "apper-toolbar-toggler";
-    this.#toggler.src = "https://raw.githubusercontent.com/xarkenz/apper/main/src/icons/toolbar-toggler.svg";
+    this.#toggler.src = Apper.RESOURCE + "icons/toolbar-toggler.svg";
     this.#toggler.addEventListener("mousedown", event => Apper.toggleStyleClass(this.#element, "apper-shown"));
     this.#toggler.addEventListener("touchstart", event => Apper.toggleStyleClass(this.#element, "apper-shown"));
     this.#app.element.appendChild(this.#toggler);
@@ -548,6 +559,7 @@ Apper.Menu = class {
 
   get ID() { return this.#ID; }
   get app() { return this.#app; }
+  get element() { return this.#element; }
   get title() { return this.#title.textContent; }
   set title(text) { return this.#title.textContent = text; }
 
@@ -559,13 +571,13 @@ Apper.Menu = class {
     this.#frame.className = "apper-menu";
     this.#app.element.appendChild(this.#frame);
 
-    this.#element = document.createElement("div");
-    this.#frame.appendChild(this.#element);
-
     this.#title = document.createElement("span");
     this.#title.className = "apper-menu-title";
     this.#title.textContent = title;
-    this.#element.appendChild(this.#title);
+    this.#frame.appendChild(this.#title);
+
+    this.#element = document.createElement("div");
+    this.#frame.appendChild(this.#element);
   }
 
   show() {
@@ -580,24 +592,84 @@ Apper.Menu = class {
     return this;
   }
 
-  add(object) {
-    this.#element.appendChild(object.element);
+  add(widget) {
+    this.#element.appendChild(widget.element);
 
     return this;
   }
 
   addSeparator() {
     let separator = document.createElement("span");
-    separator.className = "apper-menu-separator";
+    separator.className = "apper-separator";
     this.#element.appendChild(separator);
 
     return this;
   }
 
-  addText(text) {
-    let container = document.createElement("span");
-    container.textContent = text;
-    this.#element.appendChild(container);
+};
+
+Apper.Modal = class {
+
+  #ID;
+  #app;
+  #frame;
+  #element;
+  #title;
+
+  get ID() { return this.#ID; }
+  get app() { return this.#app; }
+  get element() { return this.#element; }
+  get title() { return this.#title.textContent; }
+  set title(text) { return this.#title.textContent = text; }
+
+  constructor(app, title = "") {
+    this.#ID = Apper.Menu.nextID++;
+    this.#app = app;
+
+    this.#frame = document.createElement("div");
+    this.#frame.className = "apper-modal";
+    this.#app.element.appendChild(this.#frame);
+
+    this.#title = document.createElement("span");
+    this.#title.className = "apper-modal-title";
+    this.#title.textContent = title;
+    this.#frame.appendChild(this.#title);
+
+    const closeButton = document.createElement("img");
+    closeButton.className = "apper-close-button";
+    closeButton.src = Apper.RESOURCE + "icons/close-button.svg";
+    closeButton.addEventListener("click", event => {
+      this.hide();
+      this.app.tool = this.app.toolbar.defaultTool;
+    });
+    this.#frame.appendChild(closeButton);
+
+    this.#element = document.createElement("div");
+    this.#frame.appendChild(this.#element);
+  }
+
+  show() {
+    this.#frame.classList.add("apper-shown");
+
+    return this;
+  }
+
+  hide() {
+    this.#frame.classList.remove("apper-shown");
+
+    return this;
+  }
+
+  add(widget) {
+    this.#element.appendChild(widget.element);
+
+    return this;
+  }
+
+  addSeparator() {
+    let separator = document.createElement("span");
+    separator.className = "apper-separator";
+    this.#element.appendChild(separator);
 
     return this;
   }
@@ -618,7 +690,7 @@ Apper.Menu.Paragraph = class {
   constructor(content = "") {
     this.#element = document.createElement("p");
     this.#element.className = "apper-paragraph";
-    this.#element.textContent = content;
+    this.#element.innerHTML = content;
   }
 
   show() {
@@ -716,7 +788,7 @@ Apper.Menu.Checkbox = class {
 
     let box = document.createElement("div");
     let check = document.createElement("img");
-    check.src = "https://raw.githubusercontent.com/xarkenz/apper/main/src/icons/checkbox-check.svg";
+    check.src = Apper.RESOURCE + "icons/checkbox-check.svg";
     box.appendChild(check);
     this.#element.appendChild(box);
   }
@@ -975,3 +1047,32 @@ Apper.Menu.CanvasImage = class {
   }
 
 };
+
+
+// Insert necessary <link> tags
+if (!document.querySelector("link[href='https://fonts.googleapis.com']")) {
+  let tag = document.createElement("link");
+  tag.rel = "preconnect";
+  tag.href = "https://fonts.googleapis.com";
+  document.head.insertBefore(tag, Apper.SCRIPT_NODE);
+}
+if (!document.querySelector("link[href='https://fonts.gstatic.com']")) {
+  let tag = document.createElement("link");
+  tag.rel = "preconnect";
+  tag.href = "https://fonts.gstatic.com";
+  tag.crossOrigin = "anonymous";
+  document.head.insertBefore(tag, Apper.SCRIPT_NODE);
+}
+if (!document.querySelector("link[href='https://fonts.googleapis.com/css2?family=Cousine&family=Nunito:wght@500&display=swap']")) {
+  let tag = document.createElement("link");
+  tag.rel = "stylesheet";
+  tag.href = "https://fonts.googleapis.com/css2?family=Cousine&family=Nunito:wght@500&display=swap";
+  document.head.insertBefore(tag, Apper.SCRIPT_NODE);
+}
+if (!document.querySelector("link[href*='apper/src/apper.css']")) {
+  let tag = document.createElement("link");
+  tag.rel = "stylesheet";
+  tag.href = Apper.SCRIPT_NODE.src.substring(0, Apper.SCRIPT_NODE.src.indexOf(".js")) + ".css";
+  tag.type = "text/css";
+  document.head.insertBefore(tag, Apper.SCRIPT_NODE);
+}

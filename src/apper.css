@@ -198,7 +198,7 @@
   overflow: hidden;
   opacity: 0;
   transition: 0.25s width, 0.25s opacity;
-  pointer-events: none;  /* Prevents activation of .apper-toolbutton:hover when hovering over the tip... though a little hacky. */
+  pointer-events: none;
 }
 
 .apper-toolbutton-tip span {
@@ -227,36 +227,107 @@
   top: 48px;
   width: 300px;
   height: calc(100% - 96px);
+  box-sizing: border-box;
   border-radius: 10px 0 0 10px;
   background: #444c;
   opacity: 0;
   color: #ccc;
-  overflow: hidden auto;
+  font-size: 14px;
   transition: transform 0.5s, opacity 0.25s;
+  pointer-events: none;
 }
 
 .apper-menu.apper-shown {
   transform: translateX(-300px);
   opacity: 1;
+  pointer-events: initial;
 }
 
-.apper-menu span:not(.apper-menu-title) {
-  font-size: 14px;
+.apper-menu-title {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: calc(100% - 20px);
+  height: 24px;
+  font-size: 16px;
 }
 
 .apper-menu > div {
   position: absolute;
   left: 0;
-  top: 0;
-  width: 100%;
-  height: min-content;
-  padding: 10px;
-  box-sizing: border-box;
-  background: none;
-  font-size: 16px;
+  top: 34px;
+  width: calc(100% - 20px);
+  height: calc(100% - 44px);
+  box-sizing: content-box;
+  padding: 0 10px;
+  overflow: hidden auto;
 }
 
-.apper-menu-separator {
+
+.apper-modal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -45%);
+  width: 600px;
+  max-width: calc(100% - 128px);
+  height: 500px;
+  max-height: calc(100% - 128px);
+  box-sizing: border-box;
+  border-radius: 16px;
+  background: #444c;
+  opacity: 0;
+  color: #ccc;
+  font-size: 14px;
+  transition: transform 0.25s, opacity 0.25s;
+  pointer-events: none;
+}
+
+.apper-modal.apper-shown {
+  transform: translate(-50%, -50%);
+  opacity: 1;
+  pointer-events: initial;
+}
+
+.apper-modal-title {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  width: calc(100% - 56px);
+  height: 24px;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.apper-modal > .apper-close-button {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  width: 14px;
+  height: 14px;
+  box-sizing: content-box;
+  padding: 10px;
+  opacity: 0.5;
+  transition: opacity 0.25s;
+}
+
+.apper-modal > .apper-close-button:hover {
+  opacity: 1;
+}
+
+.apper-modal > div {
+  position: absolute;
+  left: 0;
+  top: 40px;
+  width: calc(100% - 32px);
+  height: calc(100% - 56px);
+  box-sizing: content-box;
+  padding: 0 16px;
+  overflow: hidden auto;
+}
+
+
+.apper-separator {
   display: block;
   position: relative;
   width: 100%;
@@ -268,6 +339,15 @@
 
 .apper-paragraph {
   font-size: 14px;
+}
+
+.apper-paragraph a:link, .apper-paragraph a:visited {
+  color: #39a0fa;
+  transition: color 0.25s;
+}
+
+.apper-paragraph a:link:hover, .apper-paragraph a:visited:hover {
+  color: #43bdff;
 }
 
 
