@@ -15,6 +15,9 @@ class Apper {
   #menus;
   #message;
   #messageTimeout;
+  #altKey;
+  #ctrlKey;
+  #shiftKey;
 
   get element() { return this.#element; }
   get canvas() { return this.#canvas; }
@@ -30,6 +33,9 @@ class Apper {
   set transform(matrix) { return this.#transform = matrix; }
   get cursorPos() { return this.#cursorPos.copy(); }
   get scale() { return window.devicePixelRatio; }
+  get altKey() { return this.#altKey; }
+  get ctrlKey() { return this.#ctrlKey; }
+  get shiftKey() { return this.#shiftKey; }
 
   constructor() {
     this.#element = document.createElement("div");
@@ -64,6 +70,9 @@ class Apper {
     this.#messageTimeout = null;
     this.#toolbar = null;
     this.#menus = [];
+    this.#altKey = false;
+    this.#ctrlKey = false;
+    this.#shiftKey = false;
 
     this.#ctx = this.#canvas.getContext("2d");
 
@@ -76,6 +85,7 @@ class Apper {
     document.addEventListener("touchend", this.#rawMouseUp.bind(this), {passive: true});
     this.#canvas.addEventListener("wheel", this.#rawScrollWheel.bind(this), {capture: true, passive: false});
     document.addEventListener("keydown", this.#rawKeyDown.bind(this), {capture: true, passive: false});
+    document.addEventListener("keyup", this.#rawKeyUp.bind(this), {passive: true});
 
     this.#transform = this.#ctx.getTransform();
     this.#cursorPos = new Apper.Vector2();
@@ -176,9 +186,9 @@ class Apper {
       isTouch,
       screenPos,
       worldPos: this.getWorldPos(screenPos),
-      altKey: event.altKey,
-      ctrlKey: event.ctrlKey,
-      shiftKey: event.shiftKey,
+      altKey: this.#altKey = event.altKey ?? this.#altKey,
+      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
       leftBtn: isTouch ? true : !!(event.buttons & 1),
       rightBtn: isTouch ? false : !!(event.buttons & 2),
       middleBtn: isTouch ? false : !!(event.buttons & 4),
@@ -207,9 +217,9 @@ class Apper {
       onCanvas: event.target === this.#canvas,
       screenPos,
       worldPos: this.getWorldPos(screenPos),
-      altKey: event.altKey,
-      ctrlKey: event.ctrlKey,
-      shiftKey: event.shiftKey,
+      altKey: this.#altKey = event.altKey ?? this.#altKey,
+      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
       leftBtn: isTouch ? true : !!(event.buttons & 1),
       rightBtn: isTouch ? false : !!(event.buttons & 2),
       middleBtn: isTouch ? false : !!(event.buttons & 4)
@@ -227,9 +237,9 @@ class Apper {
 
     const info = {
       isTouch,
-      altKey: event.altKey,
-      ctrlKey: event.ctrlKey,
-      shiftKey: event.shiftKey,
+      altKey: this.#altKey = event.altKey ?? this.#altKey,
+      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
       leftBtn: isTouch ? true : !!(event.buttons & 1),
       rightBtn: isTouch ? false : !!(event.buttons & 2),
       middleBtn: isTouch ? false : !!(event.buttons & 4),
@@ -243,6 +253,9 @@ class Apper {
 
   #rawScrollWheel(event) {
     const info = {
+      altKey: this.#altKey = event.altKey ?? this.#altKey,
+      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
       dx: event.deltaX,
       dy: event.deltaY
     };
@@ -256,16 +269,46 @@ class Apper {
   }
 
   #rawKeyDown(event) {
-    if (event.target !== document.body) return;
+    if (event.target !== document.body) {
+      this.update();
+      return;
+    }
 
     const info = {
+      altKey: this.#altKey = event.altKey ?? this.#altKey,
+      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
       key: event.code.toLowerCase()
     };
 
-    if (this.keyDown === undefined || !this.keyDown(info)) return;
+    if (this.keyDown === undefined || !this.keyDown(info)) {
+      this.update();
+      return;
+    }
 
     event.preventDefault();
     event.stopPropagation();
+
+    this.update();
+  }
+
+  #rawKeyUp(event) {
+    if (event.target !== document.body) {
+      this.update();
+      return;
+    }
+
+    const info = {
+      altKey: this.#altKey = event.altKey ?? this.#altKey,
+      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
+      key: event.code.toLowerCase()
+    };
+
+    if (this.keyUp === undefined || !this.keyUp(info)) {
+      this.update();
+      return;
+    }
 
     this.update();
   }
@@ -386,6 +429,8 @@ Apper.Rect = class {
   get h() { return this.#size.y; }
   set h(h) { return this.#size.y = h; }
 
+  get cx() { return this.#pos.x + 0.5 * this.#size.x; }
+  get cy() { return this.#pos.y + 0.5 * this.#size.y; }
   get xw() { return this.#pos.x + this.#size.x; }
   get yh() { return this.#pos.y + this.#size.y; }
 
@@ -728,7 +773,7 @@ Apper.Menu.Button = class {
     this.#element.className = "apper-button";
     if (url != null) this.#element.href = url;
     if (filename != null) this.#element.download = filename;
-    this.#element.textContent = label;
+    this.#element.innerHTML = label;
     this.#element.addEventListener("click", event => {
       if (this.click !== undefined) this.click();
     }, {passive: true});
