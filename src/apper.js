@@ -42,6 +42,7 @@ class Apper {
     this.#element.className = "apper";
 
     this.#canvas = document.createElement("canvas");
+    this.#canvas.tabIndex = -1;  // Allows the canvas to have focus
     this.#canvas.width = 0;
     this.#canvas.height = 0;
     this.#element.appendChild(this.#canvas);
@@ -112,6 +113,10 @@ class Apper {
   addModal(title) {
     const modal = new Apper.Modal(this, title);
     return this.#menus[modal.ID] = modal;
+  }
+
+  focusCanvas() {
+    this.#canvas.focus();
   }
 
   showMessage(text, error = false) {
@@ -195,7 +200,7 @@ class Apper {
       button: isTouch ? 0 : event.button
     };
 
-    this.#title.blur();
+    this.focusCanvas();
     this.#cursorPos.set(screenPos);
 
     if (this.mouseDown === undefined || !this.mouseDown(info)) return;
@@ -269,7 +274,7 @@ class Apper {
   }
 
   #rawKeyDown(event) {
-    if (event.target !== document.body) {
+    if (event.target !== this.#canvas) {
       this.update();
       return;
     }
@@ -293,7 +298,7 @@ class Apper {
   }
 
   #rawKeyUp(event) {
-    if (event.target !== document.body) {
+    if (event.target !== this.#canvas) {
       this.update();
       return;
     }
@@ -558,8 +563,9 @@ Apper.Toolbar = class {
     let button = document.createElement("div");
     button.className = "apper-toolbutton";
     if (this.#tool === tool.ID) button.classList.add("apper-button-selected");
-    button.addEventListener("mousedown", event => {
+    button.addEventListener("click", event => {
       this.#tool = this.#tool === tool.ID ? this.#defaultTool : tool.ID;
+      this.#app.focusCanvas();
       this.#update();
     }, {passive: true});
     this.#element.appendChild(button);
@@ -867,7 +873,7 @@ Apper.Menu.HSpread = class {
     return this.#value = value;
   }
 
-  constructor(name, label, icons, init = null) {
+  constructor(name, label, icons, labelIcon = null, init = null) {
     this.#name = name;
     this.#value = init;
 
@@ -878,9 +884,18 @@ Apper.Menu.HSpread = class {
     this.#label.textContent = label;
     this.#element.appendChild(this.#label);
 
+    if (labelIcon) {
+      let icon = document.createElement("img");
+      icon.src = labelIcon;
+      this.#element.appendChild(icon);
+    }
+
+    let spread = document.createElement("div");
+    this.#element.appendChild(spread);
+
     icons.forEach((iconSrc, value) => {
       let container = document.createElement("label");
-      this.#element.appendChild(container);
+      spread.appendChild(container);
 
       let input = document.createElement("input");
       input.type = "radio";
@@ -896,9 +911,14 @@ Apper.Menu.HSpread = class {
       let button = document.createElement("span");
       container.appendChild(button);
 
-      let icon = document.createElement("img");
-      icon.src = iconSrc;
-      button.appendChild(icon);
+      iconSrc = iconSrc.trim();
+      if (iconSrc.startsWith("<")) {
+        button.innerHTML = iconSrc;
+      } else {
+        let icon = document.createElement("img");
+        icon.src = iconSrc;
+        button.appendChild(icon);
+      }
     });
   }
 
@@ -1006,6 +1026,8 @@ Apper.Menu.NumberInput = class {
   #name;
   #label;
   #input;
+  #min;
+  #max;
 
   get element() { return this.#element; }
   get name() { return this.#name; }
@@ -1015,9 +1037,14 @@ Apper.Menu.NumberInput = class {
   set value(value) { return this.#input.value = value; }
 
   constructor(name, label, icon = null, init = 0) {
+    this.#min = -Infinity;
+    this.#max = Infinity;
+
     this.#element = document.createElement("label");
     this.#element.className = "apper-number-input";
     this.#element.addEventListener("change", event => {
+      if (this.value < this.#min) this.value = this.#min;
+      else if (this.value > this.#max) this.value = this.#max;
       if (this.change !== undefined) this.change(this.value);
     }, {capture: false, passive: true});
 
@@ -1036,6 +1063,20 @@ Apper.Menu.NumberInput = class {
     this.#input.name = name;
     this.#input.value = init;
     this.#element.appendChild(this.#input);
+  }
+
+  setMin(value) {
+    this.#min = value;
+    this.#input.min = value;
+
+    return this;
+  }
+
+  setMax(value) {
+    this.#max = value;
+    this.#input.max = value;
+
+    return this;
   }
 
   onChange(callback) {
