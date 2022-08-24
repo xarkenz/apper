@@ -634,6 +634,7 @@
   width: auto;
   height: auto;
   max-width: 100%;
+  max-height: 400px;
   box-sizing: border-box;
   border: 2px solid #fff2;
   margin: 8px auto;

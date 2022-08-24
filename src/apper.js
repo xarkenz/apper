@@ -192,7 +192,7 @@ class Apper {
       screenPos,
       worldPos: this.getWorldPos(screenPos),
       altKey: this.#altKey = event.altKey ?? this.#altKey,
-      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      ctrlKey: this.#ctrlKey = (event.ctrlKey || event.metaKey) ?? this.#ctrlKey,
       shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
       leftBtn: isTouch ? true : !!(event.buttons & 1),
       rightBtn: isTouch ? false : !!(event.buttons & 2),
@@ -223,7 +223,7 @@ class Apper {
       screenPos,
       worldPos: this.getWorldPos(screenPos),
       altKey: this.#altKey = event.altKey ?? this.#altKey,
-      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      ctrlKey: this.#ctrlKey = (event.ctrlKey || event.metaKey) ?? this.#ctrlKey,
       shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
       leftBtn: isTouch ? true : !!(event.buttons & 1),
       rightBtn: isTouch ? false : !!(event.buttons & 2),
@@ -243,7 +243,7 @@ class Apper {
     const info = {
       isTouch,
       altKey: this.#altKey = event.altKey ?? this.#altKey,
-      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      ctrlKey: this.#ctrlKey = (event.ctrlKey || event.metaKey) ?? this.#ctrlKey,
       shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
       leftBtn: isTouch ? true : !!(event.buttons & 1),
       rightBtn: isTouch ? false : !!(event.buttons & 2),
@@ -259,7 +259,7 @@ class Apper {
   #rawScrollWheel(event) {
     const info = {
       altKey: this.#altKey = event.altKey ?? this.#altKey,
-      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      ctrlKey: this.#ctrlKey = (event.ctrlKey || event.metaKey) ?? this.#ctrlKey,
       shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
       dx: event.deltaX,
       dy: event.deltaY
@@ -281,7 +281,7 @@ class Apper {
 
     const info = {
       altKey: this.#altKey = event.altKey ?? this.#altKey,
-      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      ctrlKey: this.#ctrlKey = (event.ctrlKey || event.metaKey) ?? this.#ctrlKey,
       shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
       key: event.code.toLowerCase()
     };
@@ -305,7 +305,7 @@ class Apper {
 
     const info = {
       altKey: this.#altKey = event.altKey ?? this.#altKey,
-      ctrlKey: this.#ctrlKey = event.ctrlKey ?? this.#ctrlKey,
+      ctrlKey: this.#ctrlKey = (event.ctrlKey || event.metaKey) ?? this.#ctrlKey,
       shiftKey: this.#shiftKey = event.shiftKey ?? this.#shiftKey,
       key: event.code.toLowerCase()
     };
@@ -850,6 +850,18 @@ Apper.Menu.Checkbox = class {
     return this;
   }
 
+  show() {
+    this.#element.style.display = "";
+
+    return this;
+  }
+
+  hide() {
+    this.#element.style.display = "none";
+
+    return this;
+  }
+
 };
 
 
@@ -928,6 +940,18 @@ Apper.Menu.HSpread = class {
     return this;
   }
 
+  show() {
+    this.#element.style.display = "";
+
+    return this;
+  }
+
+  hide() {
+    this.#element.style.display = "none";
+
+    return this;
+  }
+
 };
 
 
@@ -975,6 +999,18 @@ Apper.Menu.TextEditor = class {
     return this;
   }
 
+  show() {
+    this.#element.style.display = "";
+
+    return this;
+  }
+
+  hide() {
+    this.#element.style.display = "none";
+
+    return this;
+  }
+
 };
 
 
@@ -1013,6 +1049,18 @@ Apper.Menu.ButtonList = class {
 
   onChange(callback) {
     this.change = callback;
+
+    return this;
+  }
+
+  show() {
+    this.#element.style.display = "";
+
+    return this;
+  }
+
+  hide() {
+    this.#element.style.display = "none";
 
     return this;
   }
@@ -1081,6 +1129,18 @@ Apper.Menu.NumberInput = class {
 
   onChange(callback) {
     this.change = callback;
+
+    return this;
+  }
+
+  show() {
+    this.#element.style.display = "";
+
+    return this;
+  }
+
+  hide() {
+    this.#element.style.display = "none";
 
     return this;
   }
