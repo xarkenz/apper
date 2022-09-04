@@ -395,9 +395,10 @@
 
 .apper-checkbox > input {
   position: absolute;
-  opacity: 0;
   width: 0;
   height: 0;
+  box-sizing: border-box;
+  opacity: 0;
 }
 
 .apper-checkbox > div {
@@ -420,16 +421,23 @@
   transition: opacity 0.125s;
 }
 
-.apper-checkbox:hover > div {
+.apper-checkbox:hover > input:not(:checked):not(:disabled) ~ div {
   background: #fff3;
 }
 
 .apper-checkbox > input:checked ~ div {
   background: #b762f0cc;
+  transition: none;
 }
 
 .apper-checkbox > input:checked ~ div img {
   opacity: 1;
+  transition: none;
+}
+
+.apper-checkbox > input:disabled ~ * {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 
@@ -534,7 +542,11 @@
   color: #999;
 }
 
-.apper-text-editor.apper-invalid {
+.apper-text-editor:focus {
+  outline-color: #b762f077;
+}
+
+.apper-text-editor.apper-invalid, .apper-text-editor:focus.apper-invalid {
   outline-color: #e84b33cc;
 }
 
