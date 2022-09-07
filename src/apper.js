@@ -188,6 +188,7 @@ class Apper {
     this.#ctx.resetTransform();
     this.#ctx.scale(this.scale, this.scale);
     this.#view.size.set(this.#element.clientWidth, this.#element.clientHeight);
+    this.#view.scale = this.scale;
 
     const info = {
       width: this.#element.clientWidth,
@@ -543,6 +544,7 @@ Apper.Viewport = class {
   #size;
   #zoom;
   #izoom;
+  #scale;
 
   get center() { return this.#center; }
   get size() { return this.#size; }
@@ -550,6 +552,8 @@ Apper.Viewport = class {
   set zoom(z) { this.#izoom = 1 / z; return this.#zoom = z; }
   get izoom() { return this.#izoom; }
   set izoom(z) { this.#zoom = 1 / z; return this.#izoom = z; }
+  get scale() { return this.#scale; }
+  set scale(s) { return this.#scale = s; }
 
   get cx() { return this.#center.x; }
   set cx(x) { return this.#center.x = x; }
@@ -560,11 +564,12 @@ Apper.Viewport = class {
   get h() { return this.#size.y; }
   set h(h) { return this.#size.y = h; }
 
-  constructor(cx = 0, cy = 0, w = 0, h = 0, z = 1) {
+  constructor(cx = 0, cy = 0, w = 0, h = 0, z = 1, s = 1) {
     this.#center = new Apper.Vector2(cx, cy);
     this.#size = new Apper.Vector2(w, h);
     this.#zoom = z;
     this.#izoom = 1 / z;
+    this.#scale = s;
   }
 
   transform(worldPos) {
